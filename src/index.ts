@@ -25,6 +25,17 @@ const client = new Client({
 
 client.commands = new Collection();
 
+
+// Register prefix command handler for !mlmatch
+try {
+  const { registerPrefixCommand } = require("./commands/mlmatch");
+  if (typeof registerPrefixCommand === "function") {
+    registerPrefixCommand(client);
+  }
+} catch (e) {
+  // Ignore if not found or error
+}
+
 // Load commands
 const commandsPath = path.join(__dirname, "commands");
 const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith(".ts") || f.endsWith(".js"));
