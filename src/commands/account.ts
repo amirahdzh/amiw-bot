@@ -45,24 +45,25 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction: any) {
   const randomCode = codes[Math.floor(Math.random() * codes.length)];
   const member = interaction.user;
-  try {
-    await member.send(
-      `✨ **Hai <@${member.id}>!** ✨\n\n` +
-      `🔑 Kamu mendapatkan akses ke akun MLBB Amiw!\n\n` +
-      `➡️ **Langkah selanjutnya:**\n` +
-      `1. Kunjungi: https://amiw.dev/hidden\n` +
-      `2. Masukkan kode rahasia berikut: \`${randomCode}\`\n\n` +
-      `📋 Setelah itu, kamu bisa melihat daftar akun yang tersedia untuk kamu pakai!\n\n` +
-      `> *Kalau mau akses akun utama amiw, DM langsung ke<@454985541327519744> aja yaa. Buat kamu pasti boleh kok! :3*`
-    );
-    await interaction.reply({
-      content: "Jangan lupa cek DM buat akses akun-akun Amiw yang bisa kamu pakai!",
-      ephemeral: true,
-    });
-  } catch (error) {
-    await interaction.reply({
-      content: "Gagal mengirim DM. Pastikan DM kamu tidak terkunci.",
-      ephemeral: true,
-    });
-  }
+  const publicMsg =
+    `**<@${member.id}>, jangan lupa cek DM ya!**\n\n` +
+    `Cara akses akun MLBB Amiw sudah dikirim ke DM.\n` +
+    `> *Pastikan kamu mengizinkan bot untuk mengirim pesan DM.*`;
+
+  // Always reply publicly in the channel as soon as possible
+  await interaction.reply({
+    content: publicMsg,
+    ephemeral: false,
+  });
+
+  // Send DM for privacy, but don't block the reply
+  member.send(
+    `✨ **Hai <@${member.id}>!** ✨\n\n` +
+    `🔑 Kamu mendapatkan akses ke akun MLBB Amiw!\n\n` +
+    `➡️ **Langkah selanjutnya:**\n` +
+    `1. Kunjungi: https://amiw.dev/hidden\n` +
+    `2. Masukkan kode rahasia berikut: \`${randomCode}\`\n\n` +
+    `📋 Setelah itu, kamu bisa melihat daftar akun yang tersedia untuk kamu pakai!\n\n` +
+    `> *Kalau mau akses akun utama amiw, DM langsung ke<@454985541327519744> aja yaa. Buat kamu pasti boleh kok! :3*`
+  ).catch(() => {/* ignore DM errors */});
 }

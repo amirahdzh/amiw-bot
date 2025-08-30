@@ -31,9 +31,10 @@ try {
   const { registerPrefixCommand } = require("./commands/mlmatch");
   if (typeof registerPrefixCommand === "function") {
     registerPrefixCommand(client);
+    console.log("✅ Prefix command handler for !mlmatch registered successfully");
   }
 } catch (e) {
-  // Ignore if not found or error
+  console.error("❌ Failed to register prefix command handler:", e);
 }
 
 // Load commands

@@ -1,10 +1,155 @@
 // Prefix command handler for !mlmatch (for transparency)
 import { Client, Message, TextChannel, NewsChannel, ThreadChannel } from "discord.js";
 
+// Shared function to process match assignment for both slash and prefix commands
+async function processMatchAssignment(input: string, channel: any, isSlashCommand: boolean) {
+  let namesPart = input.replace(/-(random|aligned)$/i, "").trim();
+  const names = namesPart.split(",").map((n: string) => n.trim()).filter(Boolean);
+  const numTeams = names.length / 5;
+  const modeMatch = input.match(/-(random|aligned)$/i);
+  const mode = modeMatch ? modeMatch[1].toLowerCase() : "aligned";
+
+  // Validation
+  const lowerNames = names.map((n: string) => n.toLowerCase());
+  const nameSet = new Set(lowerNames);
+  
+  if (nameSet.size !== names.length) {
+    const errorMsg = "❗ Duplicate or similar player names detected. Please use unique names for each player.";
+    if (isSlashCommand) {
+      await channel.reply({ content: errorMsg, ephemeral: true });
+    } else if (
+      channel instanceof TextChannel ||
+      channel instanceof NewsChannel ||
+      channel instanceof ThreadChannel
+    ) {
+      await channel.send(errorMsg);
+    }
+    return;
+  }
+
+  if (!Number.isInteger(numTeams) || numTeams < 1) {
+    const errorMsg = `❗ Please input a multiple of 5 player names separated by commas (5, 10, 15, ...). Example: ${isSlashCommand ? 'alex,laurent,vio,fika,john,emma,kevin,steve,amy,ben' : '!mlmatch alex,laurent,vio,fika,john,emma,kevin,steve,amy,ben'}`;
+    if (isSlashCommand) {
+      await channel.reply({ content: errorMsg, ephemeral: true });
+    } else if (
+      channel instanceof TextChannel ||
+      channel instanceof NewsChannel ||
+      channel instanceof ThreadChannel
+    ) {
+      await channel.send(errorMsg);
+    }
+    return;
+  }
+
+  if (mode !== "random" && mode !== "aligned") {
+    const errorMsg = `❗ Invalid mode. Use -random or -aligned. Example: ${isSlashCommand ? 'alex,laurent,vio,fika,john -random' : '!mlmatch alex,laurent,vio,fika,john -random'}`;
+    if (isSlashCommand) {
+      await channel.reply({ content: errorMsg, ephemeral: true });
+    } else if (
+      channel instanceof TextChannel ||
+      channel instanceof NewsChannel ||
+      channel instanceof ThreadChannel
+    ) {
+      await channel.send(errorMsg);
+    }
+    return;
+  }
+
+  // Generate team assignments
+  let allTeamsOutput: string[] = [];
+  for (let t = 0; t < numTeams; t++) {
+    // Randomize the order of each group of 5 names before assigning lanes/heroes
+    let teamNames = names.slice(t * 5, (t + 1) * 5);
+    teamNames = shuffle([...teamNames]);
+    let assignments: { name: string, hero: string, role: string }[] = [];
+
+    if (mode === "random") {
+      const heroPool = shuffle([...heroes]);
+      if (heroPool.length < 5) {
+        const errorMsg = "❗ Not enough heroes in the pool.";
+        if (isSlashCommand) {
+          await channel.reply({ content: errorMsg, ephemeral: true });
+        } else if (
+          channel instanceof TextChannel ||
+          channel instanceof NewsChannel ||
+          channel instanceof ThreadChannel
+        ) {
+          await channel.send(errorMsg);
+        }
+        return;
+      }
+      const chosenHeroes = heroPool.slice(0, 5);
+      assignments = teamNames.map((name: string, i: number) => {
+        const hero = chosenHeroes[i];
+        const lane = laneOrder[i];
+        return { name, hero: hero.name, role: lane.label };
+      });
+    } else if (mode === "aligned") {
+      const availableHeroes = shuffle([...heroes]);
+      const usedHeroes: Set<string> = new Set();
+      assignments = [];
+      for (let i = 0; i < laneOrder.length; i++) {
+        const { role, label } = laneOrder[i];
+        const hero = availableHeroes.find(
+          (h) => h.roles.includes(role) && !usedHeroes.has(h.name)
+        );
+        if (!hero) {
+          const errorMsg = "❗ Not enough heroes to fill all roles for -aligned mode.";
+          if (isSlashCommand) {
+            await channel.reply({ content: errorMsg, ephemeral: true });
+          } else if (
+            channel instanceof TextChannel ||
+            channel instanceof NewsChannel ||
+            channel instanceof ThreadChannel
+          ) {
+            await channel.send(errorMsg);
+          }
+          return;
+        }
+        assignments.push({
+          name: teamNames[i],
+          hero: hero.name,
+          role: label,
+        });
+        usedHeroes.add(hero.name);
+      }
+    }
+
+    const teamOutput = assignments
+      .map((a) => `${a.name} = ${a.hero} (${a.role})`)
+      .join("\n");
+    allTeamsOutput.push(`**Team ${t + 1}:**\n${teamOutput}`);
+  }
+
+  // Send response
+  const responseContent = isSlashCommand 
+    ? allTeamsOutput.join("\n\n")
+    : `Input: ${input}\n\n${allTeamsOutput.join("\n\n")}`;
+
+  if (isSlashCommand) {
+    await channel.reply({ content: responseContent });
+  } else if (
+    channel instanceof TextChannel ||
+    channel instanceof NewsChannel ||
+    channel instanceof ThreadChannel
+  ) {
+    await channel.send(responseContent);
+  }
+}
+
 export function registerPrefixCommand(client: Client) {
+  console.log("🔧 Setting up !mlmatch prefix command handler...");
+  
   client.on("messageCreate", async (message: Message) => {
+    // Debug: Log all messages (remove this after debugging)
+    if (!message.author.bot && message.content.includes("mlmatch")) {
+      console.log("📝 Message received:", message.content);
+    }
+    
     if (message.author.bot) return;
     if (!message.content.toLowerCase().startsWith("!mlmatch")) return;
+
+    console.log("🎯 !mlmatch command detected:", message.content);
 
     const input = message.content.slice("!mlmatch".length).trim();
     if (!input) {
@@ -13,109 +158,25 @@ export function registerPrefixCommand(client: Client) {
         message.channel instanceof NewsChannel ||
         message.channel instanceof ThreadChannel
       ) {
-        await message.channel.send("Input required. Example: !mlmatch alex,laurent,vio,fika,john -random");
+        await message.channel.send("❗ Input required. Example: `!mlmatch alex,laurent,vio,fika,john -random`");
       }
       return;
     }
 
-    let namesPart = input.replace(/-(random|aligned)$/i, "").trim();
-    const names = namesPart.split(",").map((n: string) => n.trim()).filter(Boolean);
-    const numTeams = names.length / 5;
-    const modeMatch = input.match(/-(random|aligned)$/i);
-    const mode = modeMatch ? modeMatch[1].toLowerCase() : "aligned";
-    const lowerNames = names.map((n: string) => n.toLowerCase());
-    const nameSet = new Set(lowerNames);
-    if (nameSet.size !== names.length) {
-      if (
-        message.channel instanceof TextChannel ||
-        message.channel instanceof NewsChannel ||
-        message.channel instanceof ThreadChannel
-      ) {
-        await message.channel.send("❗ Duplicate or similar player names detected. Please use unique names for each player.");
-      }
-      return;
-    }
-    if (!Number.isInteger(numTeams) || numTeams < 1) {
-      if (
-        message.channel instanceof TextChannel ||
-        message.channel instanceof NewsChannel ||
-        message.channel instanceof ThreadChannel
-      ) {
-        await message.channel.send("❗ Please input a multiple of 5 player names separated by commas (5, 10, 15, ...). Example: !mlmatch alex,laurent,vio,fika,john,emma,kevin,steve,amy,ben");
-      }
-      return;
-    }
-    if (mode !== "random" && mode !== "aligned") {
-      if (
-        message.channel instanceof TextChannel ||
-        message.channel instanceof NewsChannel ||
-        message.channel instanceof ThreadChannel
-      ) {
-        await message.channel.send("❗ Invalid mode. Use -random or -aligned. Example: !mlmatch alex,laurent,vio,fika,john -random");
-      }
-      return;
-    }
+    console.log("🔍 Processing input:", input);
 
-    let allTeamsOutput: string[] = [];
-    for (let t = 0; t < numTeams; t++) {
-      const teamNames = names.slice(t * 5, (t + 1) * 5);
-      let assignments: { name: string, hero: string, role: string }[] = [];
-      if (mode === "random") {
-        const heroPool = shuffle([...heroes]);
-        if (heroPool.length < 5) {
-          if (
-            message.channel instanceof TextChannel ||
-            message.channel instanceof NewsChannel ||
-            message.channel instanceof ThreadChannel
-          ) {
-            await message.channel.send("Not enough heroes in the pool.");
-          }
-          return;
-        }
-        const chosenHeroes = heroPool.slice(0, 5);
-        assignments = teamNames.map((name: string, i: number) => {
-          const hero = chosenHeroes[i];
-          const lane = laneOrder[i];
-          return { name, hero: hero.name, role: lane.label };
-        });
-      } else if (mode === "aligned") {
-        const availableHeroes = shuffle([...heroes]);
-        const usedHeroes: Set<string> = new Set();
-        assignments = [];
-        for (let i = 0; i < laneOrder.length; i++) {
-          const { role, label } = laneOrder[i];
-          const hero = availableHeroes.find(
-            (h) => h.roles.includes(role) && !usedHeroes.has(h.name)
-          );
-          if (!hero) {
-            if (
-              message.channel instanceof TextChannel ||
-              message.channel instanceof NewsChannel ||
-              message.channel instanceof ThreadChannel
-            ) {
-              await message.channel.send("Not enough heroes to fill all roles for -aligned mode.");
-            }
-            return;
-          }
-          assignments.push({
-            name: teamNames[i],
-            hero: hero.name,
-            role: label,
-          });
-          usedHeroes.add(hero.name);
-        }
+    // Parse input and process the match assignment
+    try {
+      await processMatchAssignment(input, message.channel, false);
+    } catch (error) {
+      console.error("❌ Error processing !mlmatch command:", error);
+      if (
+        message.channel instanceof TextChannel ||
+        message.channel instanceof NewsChannel ||
+        message.channel instanceof ThreadChannel
+      ) {
+        await message.channel.send("❗ An error occurred while processing your request.");
       }
-      const teamOutput = assignments
-        .map((a) => `${a.name} = ${a.hero} (${a.role})`)
-        .join("\n");
-      allTeamsOutput.push(`**Team ${t + 1}:**\n${teamOutput}`);
-    }
-    if (
-      message.channel instanceof TextChannel ||
-      message.channel instanceof NewsChannel ||
-      message.channel instanceof ThreadChannel
-    ) {
-      await message.channel.send(`Input: ${input}\n\n${allTeamsOutput.join("\n\n")}`);
     }
   });
 }
@@ -283,86 +344,23 @@ export const data = new SlashCommandBuilder()
   .setDescription("Generate a fun Mobile Legends match assignment!")
   .addStringOption(option =>
     option.setName("input")
-      .setDescription("5 player names separated by commas, optionally add -random or -aligned (default: aligned).")
+      .setDescription("Player names (5, 10, 15...) separated by commas. Add -random or -aligned")
       .setRequired(true)
   );
 
 export async function execute(interaction: any) {
   const input = interaction.options.getString("input");
   if (!input) {
-    await interaction.reply({ content: "Input required.", ephemeral: true });
+    await interaction.reply({ content: "❗ Input required.", ephemeral: true });
     return;
   }
 
-  // Parse input
-  // Automatically detect number of teams
-  let namesPart = input.replace(/-(random|aligned)$/i, "").trim();
-  const names = namesPart.split(",").map((n: string) => n.trim()).filter(Boolean);
-  const numTeams = names.length / 5;
-  const modeMatch = input.match(/-(random|aligned)$/i);
-  const mode = modeMatch ? modeMatch[1].toLowerCase() : "aligned";
-  // Check for duplicate/similar names (case-insensitive, trimmed)
-  const lowerNames = names.map((n: string) => n.toLowerCase());
-  const nameSet = new Set(lowerNames);
-  if (nameSet.size !== names.length) {
-    await interaction.reply({ content: `❗ Duplicate or similar player names detected. Please use unique names for each player.`, ephemeral: true });
-    return;
-  }
-  if (!Number.isInteger(numTeams) || numTeams < 1) {
-    await interaction.reply({ content: `❗ Please input a multiple of 5 player names separated by commas (5, 10, 15, ...). Example: alex,laurent,vio,fika,john,emma,kevin,steve,amy,ben`, ephemeral: true });
-    return;
-  }
-  if (mode !== "random" && mode !== "aligned") {
-    await interaction.reply({ content: "❗ Invalid mode. Use -random or -aligned.\nExample: alex,laurent,vio,fika,john -random", ephemeral: true });
-    return;
-  }
+  console.log("🎯 /mlmatch command detected:", input);
 
-  let allTeamsOutput: string[] = [];
-  for (let t = 0; t < numTeams; t++) {
-    const teamNames = names.slice(t * 5, (t + 1) * 5);
-    let assignments: { name: string, hero: string, role: string }[] = [];
-    if (mode === "random") {
-      const heroPool = shuffle([...heroes]);
-      if (heroPool.length < 5) {
-        await interaction.reply({ content: "Not enough heroes in the pool.", ephemeral: true });
-        return;
-      }
-      const chosenHeroes = heroPool.slice(0, 5);
-      assignments = teamNames.map((name: string, i: number) => {
-        const hero = chosenHeroes[i];
-        const lane = laneOrder[i];
-        return { name, hero: hero.name, role: lane.label };
-      });
-    } else if (mode === "aligned") {
-      const availableHeroes = shuffle([...heroes]);
-      const usedHeroes: Set<string> = new Set();
-      assignments = [];
-      for (let i = 0; i < laneOrder.length; i++) {
-        const { role, label } = laneOrder[i];
-        const hero = availableHeroes.find(
-          (h) => h.roles.includes(role) && !usedHeroes.has(h.name)
-        );
-        if (!hero) {
-          await interaction.reply({
-            content: `Not enough heroes to fill all roles for -aligned mode.`,
-            ephemeral: true,
-          });
-          return;
-        }
-        assignments.push({
-          name: teamNames[i],
-          hero: hero.name,
-          role: label,
-        });
-        usedHeroes.add(hero.name);
-      }
-    }
-    const teamOutput = assignments
-      .map((a) => `${a.name} = ${a.hero} (${a.role})`)
-      .join("\n");
-    allTeamsOutput.push(`**Team ${t + 1}:**\n${teamOutput}`);
+  try {
+    await processMatchAssignment(input, interaction, true);
+  } catch (error) {
+    console.error("❌ Error processing /mlmatch command:", error);
+    await interaction.reply({ content: "❗ An error occurred while processing your request.", ephemeral: true });
   }
-  await interaction.reply({
-    content: allTeamsOutput.join("\n\n"),
-  });
 }
