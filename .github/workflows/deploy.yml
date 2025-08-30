@@ -35,7 +35,7 @@ jobs:
             npm install
 
             # Compile TypeScript
-            npx tsc
+            npx ts-node src/deploy-commands.ts
 
             # Restart bot
             pm2 restart amiw-bot || pm2 start dist/index.js --name amiw-bot
