@@ -40,9 +40,8 @@ export function registerPrefixCommand(client: Client) {
     // Randomly select one option
     const selectedOption = options[Math.floor(Math.random() * options.length)];
 
-    const responseMessage = `🎯 **Picker Wheel Result:**\n\n` +
-      `🎲 **Selected:** ${selectedOption}\n\n` +
-      `📋 **Options were:** ${options.join(", ")}`;
+    // Minimalist output for prefix command
+    const responseMessage = `🎲 ${selectedOption} (from: ${options.join(", ")})`;
 
     if (
       message.channel instanceof TextChannel ||
@@ -87,9 +86,8 @@ export async function execute(interaction: any) {
   // Randomly select one option
   const selectedOption = options[Math.floor(Math.random() * options.length)];
 
-  const responseMessage = `🎯 **Picker Wheel Result:**\n\n` +
-    `🎲 **Selected:** ${selectedOption}\n\n` +
-    `📋 **Options were:** ${options.join(", ")}`;
+  // Minimalist output for slash command
+  const slashResponseMessage = ` ${selectedOption}`;
 
-  await interaction.reply({ content: responseMessage });
+  await interaction.reply({ content: slashResponseMessage });
 }
