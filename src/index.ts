@@ -37,6 +37,17 @@ try {
   console.error("❌ Failed to register prefix command handler:", e);
 }
 
+// Register prefix command handler for !choose
+try {
+  const { registerPrefixCommand: registerChooseCommand } = require("./commands/choose");
+  if (typeof registerChooseCommand === "function") {
+    registerChooseCommand(client);
+    console.log("✅ Prefix command handler for !choose registered successfully");
+  }
+} catch (e) {
+  console.error("❌ Failed to register !choose prefix command handler:", e);
+}
+
 // Load commands
 const commandsPath = path.join(__dirname, "commands");
 const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith(".ts") || f.endsWith(".js"));
