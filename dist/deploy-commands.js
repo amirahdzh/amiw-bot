@@ -20,9 +20,12 @@ for (const file of commandFiles) {
 const rest = new discord_js_1.REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 (async () => {
     try {
-        console.log("Started refreshing application (/) commands.");
-        await rest.put(discord_js_1.Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: commands });
-        console.log("Successfully reloaded application (/) commands.");
+        console.log("Started refreshing application (/) commands globally.");
+        // Deploy commands globally (available in all servers)
+        await rest.put(discord_js_1.Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+        console.log("Successfully reloaded application (/) commands globally.");
+        console.log(`Deployed ${commands.length} commands: ${commands.map(c => c.name).join(", ")}`);
+        console.log("Note: Global commands may take up to 1 hour to appear in all servers.");
     }
     catch (error) {
         console.error(error);

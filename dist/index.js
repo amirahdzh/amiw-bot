@@ -19,6 +19,28 @@ const client = new discord_js_1.Client({
     partials: [discord_js_1.Partials.Message, discord_js_1.Partials.Channel, discord_js_1.Partials.Reaction, discord_js_1.Partials.User], // Add this!
 });
 client.commands = new discord_js_1.Collection();
+// Register prefix command handler for !mlmatch
+try {
+    const { registerPrefixCommand } = require("./commands/mlmatch");
+    if (typeof registerPrefixCommand === "function") {
+        registerPrefixCommand(client);
+        console.log("✅ Prefix command handler for !mlmatch registered successfully");
+    }
+}
+catch (e) {
+    console.error("❌ Failed to register prefix command handler:", e);
+}
+// Register prefix command handler for !choose
+try {
+    const { registerPrefixCommand: registerChooseCommand } = require("./commands/choose");
+    if (typeof registerChooseCommand === "function") {
+        registerChooseCommand(client);
+        console.log("✅ Prefix command handler for !choose registered successfully");
+    }
+}
+catch (e) {
+    console.error("❌ Failed to register !choose prefix command handler:", e);
+}
 // Load commands
 const commandsPath = path_1.default.join(__dirname, "commands");
 const commandFiles = fs_1.default.readdirSync(commandsPath).filter(f => f.endsWith(".ts") || f.endsWith(".js"));
