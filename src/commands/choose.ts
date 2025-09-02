@@ -41,7 +41,7 @@ export function registerPrefixCommand(client: Client) {
     const selectedOption = options[Math.floor(Math.random() * options.length)];
 
     // Minimalist output for prefix command
-    const responseMessage = `🎲 ${selectedOption} (from: ${options.join(", ")})`;
+    const responseMessage = `${selectedOption}`;
 
     if (
       message.channel instanceof TextChannel ||
@@ -87,7 +87,7 @@ export async function execute(interaction: any) {
   const selectedOption = options[Math.floor(Math.random() * options.length)];
 
   // Minimalist output for slash command
-  const slashResponseMessage = ` ${selectedOption}`;
+  const slashResponseMessage = `${selectedOption}`;
 
   await interaction.reply({ content: slashResponseMessage });
 }
